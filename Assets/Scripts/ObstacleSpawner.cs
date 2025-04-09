@@ -1,63 +1,55 @@
-using System.Xml.Serialization;
-using Unity.AI.Navigation;
 using UnityEngine;
+using Unity.AI.Navigation;
+using UnityEngine.AI;
+
 public class ObstacleSpawner : MonoBehaviour
 {
-    [SerializeField] private NavMeshSurface meshSurface;
+    public GameObject[] obstaclePrefabs;
+    public int numberOfObstacles = 20;
+    public float spawnRadius = 100f;
 
-    [SerializeField] private int numberOfSpawn;
-    [SerializeField] private Vector2 spawnPosition;
-    [SerializeField] private Vector2 spawnSize;
-    [SerializeField] private LayerMask floorMask;
-    [SerializeField] private GameObject obstaclePrefab;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+   
+    public NavMeshSurface landNavMesh;
+
     void Start()
     {
-        for (int i = 0; i < numberOfSpawn; )
+        SpawnObstaclesOnNavMesh();
+    }
+
+    void SpawnObstaclesOnNavMesh()
+    {
+        for (int i = 0; i < numberOfObstacles; i++)
         {
-            float xPos = Random.Range(spawnPosition.x, spawnPosition.y);
-            float zPos = Random.Range(spawnPosition.x, spawnPosition.y);
-
-            Vector3 newPos = new Vector3(xPos, transform.position.y, zPos);
-
-            float xsize = Random.Range(spawnSize.x, spawnSize.y);
-            float zsize = Random.Range(spawnSize.x, spawnSize.y);
-
-            Vector3 newSize = new Vector3(xsize, 1, zsize);
-
-            Ray ray = new Ray(newPos, Vector3.down);
-            RaycastHit hit;
-
-            if (Physics.Raycast(ray, out hit, 100, floorMask))
+            Vector3 position = GetRandomNavMeshPosition(landNavMesh);
+            if (position != Vector3.zero)
             {
-                {
-                    Collider[] colliders = Physics.OverlapSphere(hit.point, SphereRadius(xsize, zsize));
-                    if (colliders.Length == 1)
-                    {
-                        Vector3 newObsPos = new Vector3(hit.point.x, 0.5f, hit.point.z);
-                        GameObject newObstacle = Instantiate(obstaclePrefab, newObsPos, Quaternion.identity);
-                        newObstacle.transform.localScale = new Vector3 (xsize, 1, zsize);
-                        i++;
-                    }
-                }
+                GameObject prefab = obstaclePrefabs[Random.Range(0, obstaclePrefabs.Length)];
+                Instantiate(prefab, position, Quaternion.Euler(0, Random.Range(0f, 360f), 0));
             }
         }
-        meshSurface.BuildNavMesh();
-    }
-    private void Update()
-    {
-
     }
 
-    private float SphereRadius(float xsize, float zsize)
+
+    Vector3 GetRandomNavMeshPosition(NavMeshSurface surface)
     {
-        if (xsize > zsize)
+        int landMask = 1 << NavMesh.GetAreaFromName("Land");
+
+        for (int attempt = 0; attempt < 10; attempt++)
         {
-            return xsize;
+            Vector3 randomPoint = new Vector3(
+                Random.Range(-spawnRadius, spawnRadius),
+                0f,
+                Random.Range(-spawnRadius, spawnRadius)
+            );
+
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(randomPoint, out hit, 5f, landMask))
+            {
+                return hit.position;
+            }
         }
-        else
-        {
-            return zsize;
-        }
+
+        return Vector3.zero;
     }
 }
+
